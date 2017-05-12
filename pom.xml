@@ -10,7 +10,7 @@
 
     <groupId>com.github.pires</groupId>
     <artifactId>hazelcast-kubernetes-bootstrapper</artifactId>
-    <version>3.8.2-SNAPSHOT</version>
+    <version>3.8.1</version>
     <packaging>jar</packaging>
 
     <name>Hazelcast Kubernetes Bootstrapper</name>
@@ -44,6 +44,15 @@
                 <role>developer</role>
             </roles>
         </developer>
+
+        <developer>
+            <id>zemiak</id>
+            <name>Miroslav Vasko</name>
+            <email>zemiak@gmail.com</email>
+            <roles>
+                <role>developer</role>
+            </roles>
+        </developer>
     </developers>
 
     <distributionManagement>
@@ -72,6 +81,7 @@
         <hazelcast.version>3.8.1</hazelcast.version>
         <spring.boot.version>1.4.4.RELEASE</spring.boot.version>
         <jackson.version>2.8.5</jackson.version>
+        <jcache.version>1.0.0</jcache.version>
     </properties>
 
     <dependencies>
@@ -87,8 +97,13 @@
         </dependency>
         <dependency>
             <groupId>com.hazelcast</groupId>
-            <artifactId>hazelcast</artifactId>
+            <artifactId>hazelcast-all</artifactId>
             <version>${hazelcast.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>javax.cache</groupId>
+            <artifactId>cache-api</artifactId>
+	        <version>${jcache.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
