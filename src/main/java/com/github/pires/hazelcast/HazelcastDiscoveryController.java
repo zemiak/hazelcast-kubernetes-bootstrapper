@@ -12,12 +12,12 @@
  */
 package com.github.pires.hazelcast;
 
+import com.cargopartner.JsonLoggingHazelcastFactory;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.config.*;
 import com.hazelcast.core.Hazelcast;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.hazelcast.logging.ILogger;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Controller;
 
@@ -39,8 +39,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 @Controller
 public class HazelcastDiscoveryController implements CommandLineRunner {
-
-    private static final Logger log = LoggerFactory.getLogger(HazelcastDiscoveryController.class);
+    private static final ILogger LOG = JsonLoggingHazelcastFactory.getLoggerStatic(HazelcastDiscoveryController.class);
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     static class Address {
@@ -97,7 +96,7 @@ public class HazelcastDiscoveryController implements CommandLineRunner {
         final String path = String.format("/api/v1/namespaces/%s/endpoints/", namespace);
         final String domain = getEnvOrDefault("DNS_DOMAIN", "cluster.local");
         final String host = getEnvOrDefault("KUBERNETES_MASTER", "https://kubernetes.default.svc.".concat(domain));
-        log.info("Asking k8s registry at {}..", host);
+        LOG.info("Asking k8s registry at " + host);
 
         final List<String> hazelcastEndpoints = new CopyOnWriteArrayList<>();
         try {
@@ -130,16 +129,16 @@ public class HazelcastDiscoveryController implements CommandLineRunner {
                         	subset.notReadyAddresses.forEach(
                                 addr -> hazelcastEndpoints.add(addr.ip));
                         } else {
-                        	log.warn("Could not find any hazelcast nodes.");
+                        	LOG.warning("Could not find any hazelcast nodes.");
                         }
                     });
                 }
             }
         } catch (IOException | NoSuchAlgorithmException | KeyManagementException ex) {
-            log.warn("Request to Kubernetes API failed", ex);
+            LOG.warning("Request to Kubernetes API failed", ex);
         }
 
-        log.info("Found {} pods running Hazelcast.", hazelcastEndpoints.size());
+        LOG.info("Found " + hazelcastEndpoints.size() + " pods running Hazelcast.");
 
         runHazelcast(hazelcastEndpoints);
     }
@@ -153,12 +152,19 @@ public class HazelcastDiscoveryController implements CommandLineRunner {
         final String HC_GROUP_PASSWORD = getEnvOrDefault("HC_GROUP_PASSWORD", null);
         final int HC_PORT = Integer.parseInt(getEnvOrDefault("HC_PORT", "5701"));
         final String HC_REST_ENABLED = getEnvOrDefault("HC_REST_ENABLED", "false");
+        final String HC_PHONE_HOME_ENABLED = getEnvOrDefault("HC_PHONE_HOME", "false");
+        final String HC_HEALTCHECK_ENABLED = getEnvOrDefault("HC_HEALTHCHECK_ENABLED", "false");
+
         if (HC_GROUP_PASSWORD != null) {
             cfg.setGroupConfig(new GroupConfig(HC_GROUP_NAME, HC_GROUP_PASSWORD));
         } else {
             cfg.setGroupConfig(new GroupConfig(HC_GROUP_NAME));
         }
         cfg.setProperty("hazelcast.rest.enabled", HC_REST_ENABLED);
+
+        cfg.setProperty("hazelcast.phone.home.enabled", HC_PHONE_HOME_ENABLED);
+        cfg.setProperty("hazelcast.http.healthcheck.enabled", HC_HEALTCHECK_ENABLED);
+
         // network configuration initialization
         final NetworkConfig netCfg = new NetworkConfig();
         netCfg.setPortAutoIncrement(false);
