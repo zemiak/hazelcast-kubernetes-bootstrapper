@@ -12,7 +12,6 @@
  */
 package com.cargopartner;
 
-import com.sun.javafx.runtime.VersionInfo;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.MessageFormat;
@@ -123,7 +122,7 @@ public class JSONLogFormatter {
             date.setTime(record.getMillis());
             String timestampValue = dateFormatter.format(date);
             eventObject.put(TIMESTAMP_KEY, timestampValue);
-            eventObject.put(TIME_MILLIS_KEY, String.valueOf(record.getMillis()));
+            eventObject.put(TIME_MILLIS_KEY, record.getMillis());
 
             /*
              * Create the event level field and append to object.
@@ -148,7 +147,7 @@ public class JSONLogFormatter {
             eventObject.put(LOGGER_NAME_KEY, loggerName);
 
             int threadId = record.getThreadID();
-            eventObject.put(THREAD_ID_KEY, String.valueOf(threadId));
+            eventObject.put(THREAD_ID_KEY, threadId);
 
             eventObject.put(THREAD_NAME_KEY, Thread.currentThread().getName());
 
@@ -161,7 +160,7 @@ public class JSONLogFormatter {
              * Include ClassName and MethodName for FINER and FINEST log levels.
              */
             Level level = record.getLevel();
-            eventObject.put(LEVEL_VALUE_KEY, String.valueOf(level.intValue()));
+            eventObject.put(LEVEL_VALUE_KEY, level.intValue());
             if (LOG_SOURCE_IN_KEY_VALUE ||
                     level.intValue() <= Level.FINE.intValue()) {
                 String sourceClassName = record.getSourceClassName();
@@ -182,62 +181,41 @@ public class JSONLogFormatter {
              */
             if (RECORD_NUMBER_IN_KEY_VALUE) {
                 recordNumber++;
-                eventObject.put(RECORD_NUMBER, String.valueOf(recordNumber));
+                eventObject.put(RECORD_NUMBER, recordNumber);
+            }
+
+            if (null != record.getThrown()) {
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                record.getThrown().printStackTrace(pw);
+                pw.close();
+
+                eventObject.put(EXCEPTION_KEY, sw.toString());
+            } else {
+                eventObject.put(EXCEPTION_KEY, "none");
             }
 
             String logMessage = record.getMessage();
 
-            if (null == logMessage || logMessage.trim().equals("")) {
-                Throwable throwable = record.getThrown();
-                if (null != throwable) {
-                    try (StringWriter stringWriter = new StringWriter();
-                         PrintWriter printWriter = new PrintWriter(stringWriter)) {
-                        JSONObject traceObject = new JSONObject();
-                        throwable.printStackTrace(printWriter);
-                        logMessage = stringWriter.toString();
-                        traceObject.put(EXCEPTION_KEY, throwable.getMessage());
-                        traceObject.put(STACK_TRACE_KEY, logMessage);
-                        eventObject.put(LOG_MESSAGE_KEY, traceObject);
-                    }
-                }
+            if (logMessage.contains("{0") && logMessage.contains("}")
+                    && null != record.getParameters()) {
+                logMessage = MessageFormat
+                        .format(logMessage, record.getParameters());
             } else {
-                if (logMessage.contains("{0") && logMessage.contains("}")
-                        && null != record.getParameters()) {
-                    logMessage = MessageFormat
-                            .format(logMessage, record.getParameters());
-                } else {
-                    ResourceBundle bundle = getResourceBundle(record.getLoggerName());
-                    if (null != bundle) {
-                        try {
-                            logMessage = MessageFormat.format(bundle
-                                .getString(logMessage),
-                                record.getParameters());
-                        } catch (MissingResourceException ex) {
-                            // Leave logMessage as it is because it already has
-                            // an exception message
-                        }
+                ResourceBundle bundle = getResourceBundle(record.getLoggerName());
+                if (null != bundle) {
+                    try {
+                        logMessage = MessageFormat.format(bundle
+                            .getString(logMessage),
+                            record.getParameters());
+                    } catch (MissingResourceException ex) {
+                        // Leave logMessage as it is because it already has
+                        // an exception message
                     }
-                }
-
-                StringBuilder logMessageBuilder = new StringBuilder();
-                logMessageBuilder.append(logMessage);
-
-                Throwable throwable = getThrowable(record);
-                if (null != throwable) {
-                    try (StringWriter stringWriter = new StringWriter();
-                         PrintWriter printWriter = new PrintWriter(stringWriter)) {
-                        JSONObject traceObject = new JSONObject();
-                        throwable.printStackTrace(printWriter);
-                        logMessage = stringWriter.toString();
-                        traceObject.put(EXCEPTION_KEY, logMessageBuilder.toString());
-                        traceObject.put(STACK_TRACE_KEY, logMessage);
-                        eventObject.put(LOG_MESSAGE_KEY, traceObject);
-                    }
-                } else {
-                    logMessage = logMessageBuilder.toString();
-                    eventObject.put(LOG_MESSAGE_KEY, logMessage);
                 }
             }
+
+            eventObject.put(LOG_MESSAGE_KEY, logMessage);
 
             return eventObject.toString() + LINE_SEPARATOR;
 
